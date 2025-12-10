@@ -1,0 +1,85 @@
+app:
+  title: TicTacToe
+  subtitle: The Ultimate Multiplayer Tic-Tac-Toe Experience
+login:
+  enter_name: Enter your name
+  btn: Enter Game
+  hint: No registration needed. Just enter your name and start playing!
+logout: Logout
+dashboard:
+  waiting_games: Games Waiting
+  playing_games: Games Playing
+  online_players: Online Players
+  create_btn: Create New Game
+  tab_available: Available Games
+  tab_my_games: My Games
+  empty_available: No games available right now
+  empty_hint: Create a new game to get started!
+  empty_active: You don't have any active games
+  waiting_opponent: Waiting for opponent...
+error:
+  load_game: Failed to load games
+game:
+  status:
+    waiting: Waiting
+    active: Active
+    finished: Finished
+    canceled: Game canceled
+  action:
+    join: Join Game
+    play: Play
+    play_now: Play Now! ⚡
+    watch: Watch
+    enter_lobby: Enter Lobby
+    back: Return
+    quit: Quit game
+  turn:
+    mine: YOUR TURN
+    opponent: OPPONENT'S TURN
+  started:
+    started_text: Started
+    not_started: NOT STARTED
+    created_text: Created
+  title: Game
+  created: Game created! Waiting for opponent...
+  loading: Loading game...
+  player_1: Player 1
+  waiting_opponent_long: Waiting for opponent...
+  share_id: Share this game ID
+  your_turn: Your Turn!
+  waiting_for: Waiting for
+  current_turn: Current Turn
+  result:
+    draw: It's a Draw!
+    you_won: You won! 🎉
+    wins: wins!
+  game_over: Game over
+  confirm_quit: Are you sure you want to quit this game?
+  quit_success: Game quit
+  already_ended: Game already ended. Redirecting...
+  error:
+    not_your_turn: Not your turn
+    move_failed: Move failed
+  modal:
+      title: Quit Game?
+      confirm: Yes, Quit
+      cancel: Cancel
+api:
+  error:
+    name_required: Name is required
+    name_length: Name must be between %min% and %max% characters
+    name_min_len: Name must be at least %min% characters
+    name_max_len: Name cannot exceed %max% characters
+    name_taken: Name is taken
+    internal: Internal server error
+    unauthorized: Unauthorized
+    user_not_found: User not found
+    game_not_found: Game not found
+    game_is_not_available: Game is not available
+    game_is_not_active: Game is not active
+    game_finished: Game already finished
+    join_owned_game: Cannot join your own game
+    forbidden: Forbidden
+    invalid_move: Invalid move
+  success:
+    name_available: Name is available

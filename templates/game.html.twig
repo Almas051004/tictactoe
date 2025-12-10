@@ -1,0 +1,382 @@
+{% extends "base.html.twig" %}
+
+{% block title %}{{ 'game.title'|trans }} - {{ 'app.title'|trans }}{% endblock %}
+
+{% block body %}
+<div class="game-page">
+    <header class="game-header">
+        <a href="/" class="btn btn--small btn--outline" data-turbo="false">
+            ← {{ 'game.action.back'|trans }}
+        </a>
+        
+        <h1>⭕ {{ 'app.title'|trans }}</h1>
+        
+        <div style="width: 80px;"></div>
+    </header>
+
+    <div class="game-container">
+        <div class="game-panel game-panel--status">
+            <div id="statusContent" class="status-content">
+                <div class="loader"></div>
+                <p>{{ 'game.loading'|trans }}</p>
+            </div>
+        </div>
+
+        <div class="game-panel game-panel--board">
+            <div class="tictactoe-board" id="gameBoard">
+                {% for i in 0..8 %}
+                    <div class="board-cell" data-position="{{ i }}"></div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="game-panel game-panel--stats">
+            <div class="stats-container">
+                <div class="stat-item">
+                    <h3 id="player1Name" class="stat-player">{{ 'game.player_1'|trans }}</h3>
+                    <div class="stat-symbol" id="player1Symbol" style="color: #60a5fa;">X</div>
+                </div>
+                <div class="stat-divider">VS</div>
+                <div class="stat-item">
+                    <h3 id="player2Name" class="stat-player">{{ 'game.status.waiting'|trans }}...</h3>
+                    <div class="stat-symbol" id="player2Symbol" style="color: #ec4899;">O</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="game-actions">
+        <button class="btn btn--secondary" id="quitBtn">{{ 'game.action.quit'|trans }}</button>
+    </div>
+</div>
+
+<div id="quitModal" class="modal-overlay" style="display: none;">
+    <div class="modal-box">
+        <h3 class="modal-title">{{ 'game.modal.title'|trans }}</h3>
+        <p class="modal-message">{{ 'game.confirm_quit'|trans }}</p>
+        <div class="modal-actions">
+            <button id="cancelQuitBtn" class="btn btn--outline">{{ 'game.modal.cancel'|trans }}</button>
+            <button id="confirmQuitBtn" class="btn btn--danger">{{ 'game.modal.confirm'|trans }}</button>
+        </div>
+    </div>
+</div>
+
+<div class="notification-container">
+    <div id="notificationToast" class="notification-toast" style="display: none;"></div>
+</div>
+
+<script>
+window.TRANS_GAME = {
+    loading: "{{ 'game.loading'|trans|e('js') }}",
+    waitingOpponent: "{{ 'game.waiting_opponent_long'|trans|e('js') }}",
+    shareId: "{{ 'game.share_id'|trans|e('js') }}",
+    yourTurn: "{{ 'game.your_turn'|trans|e('js') }}",
+    waitingFor: "{{ 'game.waiting_for'|trans|e('js') }}",
+    currentTurn: "{{ 'game.current_turn'|trans|e('js') }}",
+    draw: "{{ 'game.result.draw'|trans|e('js') }}",
+    youWon: "{{ 'game.result.you_won'|trans|e('js') }}",
+    wins: "{{ 'game.result.wins'|trans|e('js') }}",
+    gameOver: "{{ 'game.game_over'|trans|e('js') }}",
+    notYourTurn: "{{ 'game.error.not_your_turn'|trans|e('js') }}",
+    moveFailed: "{{ 'game.error.move_failed'|trans|e('js') }}",
+    gameQuit: "{{ 'game.quit_success'|trans|e('js') }}",
+    gameEnded: "{{ 'game.already_ended'|trans|e('js') }}",
+    gameCancelled: "{{ 'game.status.canceled'|trans|e('js') }}",
+    error: "Error"
+};
+
+if (typeof window.GamePage === 'undefined') {
+    window.GamePage = class GamePage {
+        constructor(gameId) {
+            this.gameId = gameId;
+            this.game = null;
+            this.isPlaying = false;
+            this.pollInterval = null;
+            this.api = window.api || new window.ApiClient();
+            this.isProcessing = false;
+        }
+
+        async init() {
+            try {
+                await this.loadGame();
+                this.setupEventListeners();
+                this.startPolling();
+            } catch (error) {
+                this.showNotification('Failed to load game: ' + error.message, 'error');
+                setTimeout(() => window.location.href = '/', 2000);
+            }
+
+            try {
+                const p1 = document.getElementById('player1Name');
+                const p2 = document.getElementById('player2Name');
+                if (this.game) {
+                    if (p1) p1.textContent = this.game.creator?.name || 'Player 1';
+                    if (p2) p2.textContent = this.game.opponent?.name || window.TRANS_GAME.waitingOpponent;
+                }
+            } catch (err) { }
+            this.updateBoardUI();
+        }
+
+        async loadGame() {
+            try {
+                this.game = await this.api.getGame(this.gameId);
+                this.render();
+            } catch (error) {
+                console.error('Error loading game:', error);
+            }
+        }
+
+        updateBoardUI() {
+            const cells = document.querySelectorAll('.board-cell');
+            if (cells && this.game && this.game.boardState) {
+                cells.forEach((cell, idx) => {
+                    const val = this.game.boardState[idx];
+                    cell.textContent = val ? val : '';
+                    cell.classList.toggle('cell--filled', !!val);
+                    
+                    if (val === 'X') {
+                        cell.style.color = '#60a5fa';
+                        cell.style.textShadow = '0 0 15px rgba(96, 165, 250, 0.5)';
+                    } else if (val === 'O') {
+                        cell.style.color = '#ec4899';
+                        cell.style.textShadow = '0 0 15px rgba(236, 72, 153, 0.5)';
+                    } else {
+                        cell.style.color = '';
+                        cell.style.textShadow = 'none';
+                    }
+                });
+            }
+        }
+
+        render() {
+            const statusContent = document.getElementById('statusContent');
+            if (!statusContent) {
+                this.stopPolling();
+                return;
+            }
+
+            this.updateBoardUI();
+            
+            if (this.game.opponent && document.getElementById('player2Name')) {
+                 const p2Name = document.getElementById('player2Name');
+                 if (p2Name.textContent === window.TRANS_GAME.waitingOpponent) {
+                     p2Name.textContent = this.game.opponent.name;
+                 }
+            }
+
+            if (this.game.status === 'waiting') {
+                statusContent.innerHTML = `
+                    <div class="status-waiting">
+                        <div class="loader"></div>
+                        <h2>${window.TRANS_GAME.waitingOpponent}</h2>
+                    </div>
+                `;
+            } else if (this.game.status === 'active') {
+                const isTurn = this.game.isMyTurn;
+                const currentPlayer = this.game.currentTurn === 'X' 
+                    ? this.game.creator.name 
+                    : (this.game.opponent?.name || 'Unknown');
+                
+                statusContent.innerHTML = `
+                    <div class="status-active">
+                        <h2 style="${isTurn ? 'color: #10b981;' : ''}">
+                            ${isTurn 
+                                ? '🎯 ' + window.TRANS_GAME.yourTurn 
+                                : '⏳ ' + window.TRANS_GAME.waitingFor + ' ' + currentPlayer 
+                            }
+                        </h2>
+                        <p>${window.TRANS_GAME.currentTurn}: <strong>${currentPlayer}</strong></p>
+                    </div>
+                `;
+            } else if (this.game.status === 'finished') {
+                let message = '';
+                let color = '#fff';
+
+                if (!this.game.winner) {
+                    message = window.TRANS_GAME.gameCancelled;
+                    color = '#9ca3af';
+                } 
+                else if (this.game.winner === 'draw') {
+                    message = window.TRANS_GAME.draw;
+                    color = '#f59e0b';
+                } else if (this.game.winner === this.game.mySymbol) {
+                    message = window.TRANS_GAME.youWon;
+                    color = '#10b981';
+                } else {
+                    let winnerName = 'Unknown';
+                    if (this.game.winner === 'X') {
+                        winnerName = this.game.creator.name;
+                    } else if (this.game.winner === 'O') {
+                        winnerName = this.game.opponent ? this.game.opponent.name : 'Opponent';
+                    }
+                    message = `${winnerName} ${window.TRANS_GAME.wins}`;
+                    color = '#ef4444';
+                }
+
+                statusContent.innerHTML = `
+                    <div class="status-finished">
+                        <h2 style="color: ${color}">${message}</h2>
+                        <p>${window.TRANS_GAME.gameOver}</p>
+                    </div>
+                `;
+            }
+        }
+
+        setupEventListeners() {
+            const quitBtn = document.getElementById('quitBtn');
+            if (quitBtn) {
+                const newBtn = quitBtn.cloneNode(true);
+                quitBtn.parentNode.replaceChild(newBtn, quitBtn);
+                newBtn.addEventListener('click', () => this.handleQuitClick());
+            }
+
+            const cells = document.querySelectorAll('.board-cell');
+            cells.forEach(cell => {
+                cell.onclick = (e) => this.handleCellClick(e);
+            });
+        }
+
+        async handleCellClick(e) {
+            if (this.isProcessing) return;
+            const pos = parseInt(e.currentTarget.dataset.position, 10);
+            
+            if (!this.game || this.game.status !== 'active') return;
+            
+            if (!this.game.isMyTurn) {
+                this.showNotification(window.TRANS_GAME.notYourTurn, 'warning');
+                return;
+            }
+
+            try {
+                this.isProcessing = true;
+                e.currentTarget.style.cursor = 'wait';
+                await this.api.makeMove(this.gameId, pos);
+                await this.loadGame();
+            } catch (err) {
+                this.showNotification(window.TRANS_GAME.moveFailed + ': ' + err.message, 'error');
+            } finally{
+                this.isProcessing = false;
+                e.currentTarget.style.cursor = 'pointer';
+            }
+        }
+
+        handleQuitClick() {
+            if (this.game && this.game.status === 'finished') {
+                window.location.href = '/';
+                return;
+            }
+            const modal = document.getElementById('quitModal');
+            if (modal) {
+                modal.style.display = 'flex';
+                
+                const cancelBtn = document.getElementById('cancelQuitBtn');
+                const confirmBtn = document.getElementById('confirmQuitBtn');
+                
+                const newCancel = cancelBtn.cloneNode(true);
+                cancelBtn.parentNode.replaceChild(newCancel, cancelBtn);
+                newCancel.addEventListener('click', () => { modal.style.display = 'none'; });
+                
+                const newConfirm = confirmBtn.cloneNode(true);
+                confirmBtn.parentNode.replaceChild(newConfirm, confirmBtn);
+                newConfirm.addEventListener('click', () => {
+                    modal.style.display = 'none';
+                    this.performQuit();
+                });
+            }
+        }
+
+        async performQuit() {
+            try {
+                await this.api.quitGame(this.gameId);
+                this.showNotification(window.TRANS_GAME.gameQuit, 'success');
+                this.stopPolling();
+                setTimeout(() => window.location.href = '/', 500);
+            } catch (error) {
+                if (error.message.includes('not found') || error.message.includes('finished')) {
+                    this.showNotification(window.TRANS_GAME.gameEnded, 'info');
+                    setTimeout(() => window.location.href = '/', 1000);
+                    return;
+                }
+                this.showNotification('Error: ' + error.message, 'error');
+            }
+        }
+
+        startPolling() {
+            if (this.pollInterval) return;
+            this.pollInterval = setInterval(async () => {
+                try {
+                    const prev = JSON.stringify(this.game);
+                    await this.loadGame();
+                    const now = JSON.stringify(this.game);
+                    if (prev !== now) {
+                        this.render();
+                    }
+                } catch (err) {
+                    console.warn('Polling error', err);
+                }
+            }, 1000);
+        }
+
+        stopPolling() {
+            if (this.pollInterval) {
+                clearInterval(this.pollInterval);
+                this.pollInterval = null;
+            }
+        }
+
+        showNotification(message, type = 'info') {
+            const toast = document.getElementById('notificationToast');
+            if (!toast) return;
+            toast.textContent = message;
+            toast.className = 'notification-toast notification--' + type;
+            toast.style.display = 'block';
+            setTimeout(() => { if (toast) toast.style.display = 'none'; }, 4000);
+        }
+    }
+}
+
+if (typeof window.ApiClient === 'undefined') {
+    class ApiClient {
+        constructor() {
+            this.userId = localStorage.getItem('userId');
+            this.baseUrl = '/api';
+        }
+        setUserId(id) {
+            this.userId = id;
+            localStorage.setItem('userId', id);
+        }
+        async request(endpoint, options = {}) {
+            const url = `${this.baseUrl}${endpoint}`;
+            const headers = { 'Content-Type': 'application/json' };
+            if (this.userId) headers['X-User-Id'] = this.userId;
+            const response = await fetch(url, { ...options, headers: { ...headers, ...options.headers } });
+            if (response.status === 204) return null;
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Request failed');
+            return data;
+        }
+        getGame(gameId) { return this.request(`/game/${gameId}`); }
+        makeMove(gameId, position) { return this.request(`/game/${gameId}/move`, { method: 'POST', body: JSON.stringify({ position }) }); }
+        quitGame(gameId) { return this.request(`/game/${gameId}/quit`, { method: 'POST' }); }
+    }
+    window.ApiClient = ApiClient;
+}
+
+window.api = window.api || new window.ApiClient();
+window.currentGamePage = null;
+
+{
+    const initGame = () => {
+        if (window.currentGamePage) window.currentGamePage.stopPolling();
+        const gameId = '{{ gameId }}';
+        window.currentGamePage = new window.GamePage(gameId);
+        window.currentGamePage.init();
+    };
+    initGame();
+}
+
+window.addEventListener('beforeunload', () => {
+    if (window.currentGamePage) window.currentGamePage.stopPolling();
+});
+</script>
+{% endblock %}

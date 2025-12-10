@@ -1,0 +1,504 @@
+{% extends "base.html.twig" %}
+
+{% block title %}{{ 'app.title'|trans }} - {{ 'app.subtitle'|trans }}{% endblock %}
+
+{% block body %}
+<div id="app" class="app">
+    <div id="loginScreen" class="screen screen--login">
+        <div style="position: absolute; top: 20px; right: 20px;">
+             <a href="{{ path('change_locale', {locale: 'en'}) }}" class="btn btn--small btn--outline">EN</a>
+             <a href="{{ path('change_locale', {locale: 'ru'}) }}" class="btn btn--small btn--outline">RU</a>
+        </div>
+
+        <div class="login-container">
+            <div class="login-header">
+                <h1 class="login-title">⭕ {{ 'app.title'|trans }}</h1>
+                <p class="login-subtitle">{{ 'app.subtitle'|trans }}</p>
+            </div>
+
+            <form id="loginForm" class="login-form">
+                <div class="form-group">
+                    <input
+                        type="text"
+                        id="playerName"
+                        class="form-control"
+                        placeholder="{{ 'login.enter_name'|trans }}"
+                        required
+                        minlength="2"
+                        maxlength="50"
+                        autocomplete="off"
+                    >
+                    <div class="form-hint" id="nameHint"></div>
+                </div>
+
+                <button type="submit" class="btn btn--primary btn--large">
+                    {{ 'login.btn'|trans }}
+                </button>
+
+                <p class="login-disclaimer">
+                    {{ 'login.hint'|trans }}
+                </p>
+            </form>
+        </div>
+    </div>
+
+    <div id="dashboardScreen" class="screen screen--dashboard" style="display: none;">
+        <div class="dashboard-container">
+            <header class="dashboard-header">
+                <div class="header-left">
+                    <h1 class="app-title">⭕ {{ 'app.title'|trans }}</h1>
+                </div>
+                <div class="header-right">
+                    <div class="lang-switcher">
+                         <a href="{{ path('change_locale', {locale: 'en'}) }}" class="lang-btn">EN</a>
+                         <a href="{{ path('change_locale', {locale: 'ru'}) }}" class="lang-btn">RU</a>
+                    </div>
+                    
+                    <div class="user-info">
+                        <span class="user-name" id="currentUserName"></span>
+                        <button class="btn btn--small btn--outline" id="logoutBtn">{{ 'logout'|trans }}</button>
+                    </div>
+                </div>
+            </header>
+
+            <main class="dashboard-main">
+                <div class="dashboard-content">
+                    <section class="stats-section">
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <div class="stat-value" id="waitingGamesCount">0</div>
+                                <div class="stat-label">{{ 'dashboard.waiting_games'|trans }}</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value" id="activeGamesCount">0</div>
+                                <div class="stat-label">{{ 'dashboard.playing_games'|trans }}</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value" id="onlinePlayersCount">0</div>
+                                <div class="stat-label">{{ 'dashboard.online_players'|trans }}</div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="action-section">
+                        <button class="btn btn--primary btn--large" id="createGameBtn">
+                            <span>➕ {{ 'dashboard.create_btn'|trans }}</span>
+                        </button>
+                    </section>
+
+                    <section class="tabs-section">
+                        <div class="tabs">
+                            <button class="tab-btn tab-btn--active" data-tab="available">
+                                {{ 'dashboard.tab_available'|trans }}
+                            </button>
+                            <button class="tab-btn" data-tab="active">
+                                {{ 'dashboard.tab_my_games'|trans }}
+                            </button>
+                        </div>
+
+                        <div class="tab-content tab-content--active" id="availableTab">
+                            <div class="games-list" id="availableGamesList">
+                                <div class="empty-state">
+                                    <p>{{ 'dashboard.empty_available'|trans }}</p>
+                                    <p class="empty-hint">{{ 'dashboard.empty_hint'|trans }}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="tab-content" id="activeTab">
+                            <div class="games-list" id="activeGamesList">
+                                <div class="empty-state">
+                                    <p>{{ 'dashboard.empty_active'|trans }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </main>
+        </div>
+    </div>
+</div>
+
+<div class="notification-container">
+    <div id="notificationToast" class="notification-toast" style="display: none;"></div>
+</div>
+
+<script>
+window.TRANS = {
+    emptyAvailable: "{{ 'dashboard.empty_available'|trans|e('js') }}",
+    emptyHint: "{{ 'dashboard.empty_hint'|trans|e('js') }}",
+    emptyActive: "{{ 'dashboard.empty_active'|trans|e('js') }}",
+    waitingOpponent: "{{ 'dashboard.waiting_opponent'|trans|e('js') }}",
+    statusWaiting: "{{ 'game.status.waiting'|trans|e('js') }}",
+    statusActive: "{{ 'game.status.active'|trans|e('js') }}",
+    statusFinished: "{{ 'game.status.finished'|trans|e('js') }}",
+    turnMine: "{{ 'game.turn.mine'|trans|e('js') }}",
+    turnOpponent: "{{ 'game.turn.opponent'|trans|e('js') }}",
+    actionJoin: "{{ 'game.action.join'|trans|e('js') }}",
+    actionEnterLobby: "{{ 'game.action.enter_lobby'|trans|e('js') }}",
+    actionPlayNow: "{{ 'game.action.play_now'|trans|e('js') }}",
+    actionWatch: "{{ 'game.action.watch'|trans|e('js') }}",
+    startedText: "{{ 'game.started.started_text'|trans|e('js') }}",
+    notStarted: "{{ 'game.started.not_started'|trans|e('js') }}",
+    createdText: "{{ 'game.started.created_text'|trans|e('js') }}",
+    FailedLoadGames: "{{ 'error.load_game'|trans|e('js') }}",
+    gameCreated: "{{ 'game.created'|trans|e('js') }}"
+};
+
+window.lastActiveGamesHtml = window.lastActiveGamesHtml || '';
+
+if (typeof window.ApiClient === 'undefined') {
+    class ApiClient {
+        constructor() {
+            this.userId = localStorage.getItem('userId');
+            this.baseUrl = '/api';
+        }
+
+        setUserId(id) {
+            this.userId = id;
+            localStorage.setItem('userId', id);
+        }
+
+        async request(endpoint, options = {}) {
+            const url = `${this.baseUrl}${endpoint}`;
+            const headers = { 'Content-Type': 'application/json' };
+            if (this.userId) headers['X-User-Id'] = this.userId;
+
+            const response = await fetch(url, {
+                ...options,
+                headers: { ...headers, ...options.headers },
+            });
+
+            if (response.status === 204) return null;
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Request failed');
+            return data;
+        }
+
+        login(name) {
+            return this.request('/user/login', { method: 'POST', body: JSON.stringify({ name }) })
+                .then(user => {
+                    localStorage.setItem('userName', user.name);
+                    return user;
+                });
+        }
+        
+        getWaitingGames() { return this.request('/game/waiting'); }
+        getActiveGames() { return this.request('/game/active'); }
+        getCurrentUser() { return this.request('/user/me'); }
+        getActiveUsers() { return this.request('/user/active'); }
+        createGame() { return this.request('/game/create', { method: 'POST' }); }
+        joinGame(gameId) { return this.request(`/game/${gameId}/join`, { method: 'POST' }); }
+        getGame(gameId) { return this.request(`/game/${gameId}`); }
+        makeMove(gameId, position) { return this.request(`/game/${gameId}/move`, { method: 'POST', body: JSON.stringify({ position }) }); }
+        quitGame(gameId) { return this.request(`/game/${gameId}/quit`, { method: 'POST' }); }
+    }
+    window.ApiClient = ApiClient;
+}
+
+if (!window.api) {
+    window.api = new window.ApiClient();
+}
+
+{
+    const loginForm = document.getElementById('loginForm');
+    if (loginForm) {
+        const newLoginForm = loginForm.cloneNode(true);
+        loginForm.parentNode.replaceChild(newLoginForm, loginForm);
+        
+        newLoginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('playerName').value.trim();
+            try {
+                const user = await window.api.login(name);
+                window.api.setUserId(user.id);
+                document.getElementById('currentUserName').textContent = user.name;
+                showScreen('dashboard');
+                loadDashboard();
+            } catch (error) {
+                showNotification('Error: ' + error.message, 'error');
+            }
+        });
+    }
+}
+
+window.nameCheckTimeout = null;
+
+{
+    const nameInput = document.getElementById('playerName');
+    if (nameInput) {
+        const newNameInput = nameInput.cloneNode(true);
+        nameInput.parentNode.replaceChild(newNameInput, nameInput);
+
+        newNameInput.addEventListener('input', (e) => {
+            const name = e.target.value.trim();
+            const hint = document.getElementById('nameHint');
+            
+            if (window.nameCheckTimeout) clearTimeout(window.nameCheckTimeout);
+
+            if (name.length < 2) {
+                hint.textContent = '';
+                hint.className = 'form-hint';
+                return;
+            }
+
+            window.nameCheckTimeout = setTimeout(async () => {
+                try {
+                    // const result = await window.api.checkName(name);
+                    // hint.className = 'form-hint ' + (result.available ? 'hint--available' : 'hint--taken');
+                    // hint.textContent = result.message;
+                } catch (error) {
+                    hint.textContent = '';
+                }
+            }, 300);
+        });
+    }
+}
+
+{
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+        const newLogoutBtn = logoutBtn.cloneNode(true);
+        logoutBtn.parentNode.replaceChild(newLogoutBtn, logoutBtn);
+
+        newLogoutBtn.addEventListener('click', () => {
+            window.api.userId = null;
+            localStorage.removeItem('userId');
+            localStorage.removeItem('userName');
+            const loginFormEl = document.getElementById('loginForm');
+            if(loginFormEl) loginFormEl.reset();
+            
+            if (window.dashboardInterval) {
+                clearInterval(window.dashboardInterval);
+                window.dashboardInterval = null;
+            }
+            showScreen('login');
+        });
+    }
+}
+
+{
+    const createGameBtn = document.getElementById('createGameBtn');
+    if (createGameBtn) {
+        const newBtn = createGameBtn.cloneNode(true);
+        createGameBtn.parentNode.replaceChild(newBtn, createGameBtn);
+
+        newBtn.addEventListener('click', async () => {
+            if (newBtn.disabled) return;
+            newBtn.disabled = true;
+            const originalContent = newBtn.innerHTML;
+            newBtn.style.opacity = '0.7';
+            newBtn.style.cursor = 'wait';
+            try {
+                const game = await window.api.createGame();
+                showNotification(window.TRANS.gameCreated, 'success');
+                setTimeout(() => window.location.href = '/game/' + game.id, 500);
+            } catch (error) {
+                newBtn.disabled = false;
+                newBtn.style.opacity = '';
+                newBtn.style.cursor = '';
+                showNotification('Error: ' + error.message, 'error');
+            }
+        });
+    }
+}
+
+{
+    const tabs = document.querySelectorAll('.tab-btn');
+    tabs.forEach(btn => {
+        const newBtn = btn.cloneNode(true);
+        btn.parentNode.replaceChild(newBtn, btn);
+
+        newBtn.addEventListener('click', () => {
+            const tab = newBtn.getAttribute('data-tab');
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('tab-btn--active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('tab-content--active'));
+            newBtn.classList.add('tab-btn--active');
+            document.getElementById(tab + 'Tab').classList.add('tab-content--active');
+        });
+    });
+}
+
+function showScreen(screenName) {
+    document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
+    const screen = document.getElementById(screenName + 'Screen');
+    if(screen) {screen.style.display = ''};
+}
+
+function showNotification(message, type = 'info') {
+    const toast = document.getElementById('notificationToast');
+    if (!toast) return;
+    toast.textContent = message;
+    toast.className = 'notification-toast notification--' + type;
+    toast.style.display = 'block';
+    setTimeout(() => { toast.style.display = 'none'; }, 4000);
+}
+
+window.joinGameHandler = async function(gameId) {
+    try {
+        const game = await window.api.joinGame(gameId);
+        showNotification('Joined game! Redirecting...', 'success');
+        setTimeout(() => window.location.href = '/game/' + game.id, 500);
+    } catch (error) {
+        showNotification('Error: ' + error.message, 'error');
+    }
+}
+
+async function loadDashboard() {
+    if (!window.api.userId) return;
+    try {
+        const [waiting, active, activeUsers] = await Promise.all([
+            window.api.getWaitingGames(),
+            window.api.getActiveGames(),
+            window.api.getActiveUsers(),
+        ]);
+        if (!window.api.userId) return;
+        renderAvailableGames(waiting);
+        const activeGamesOnly = active.filter(game => 
+            game.status === 'active' || game.status === 'waiting'
+        );
+        renderActiveGames(activeGamesOnly);
+        updateStats(waiting, activeGamesOnly, activeUsers.count || 0);
+
+        if (!window.dashboardInterval && window.api.userId) {
+            window.dashboardInterval = setInterval(loadDashboard, 3000);
+        }
+    } catch (error) {
+        if (window.api.userId) {
+            showNotification(`${window.TRANS.FailedLoadGames}: ${error.message}`, 'error');
+        }
+    }
+}
+
+function updateStats(waiting, active, onlineCount = 0) {
+    const w = document.getElementById('waitingGamesCount');
+    const a = document.getElementById('activeGamesCount');
+    const o = document.getElementById('onlinePlayersCount');
+    if(w) w.textContent = waiting.length;
+    if(a) a.textContent = active.length;
+    if(o) o.textContent = onlineCount;
+}
+
+function renderAvailableGames(games) {
+    const list = document.getElementById('availableGamesList');
+    if (!list) return;
+
+    if (games.length === 0) {
+        list.innerHTML = `<div class="empty-state"><p>${window.TRANS.emptyAvailable}</p><p class="empty-hint">${window.TRANS.emptyHint}</p></div>`;
+        return;
+    }
+
+    list.innerHTML = games.map(game => {
+        const creatorName = game.creator?.name || game.creator;
+        return `
+        <div class="game-card">
+            <div class="game-card-header">
+                <h3 class="game-card-title">${escapeHtml(creatorName)} vs ?</h3>
+                <span class="badge badge--waiting">${window.TRANS.statusWaiting}</span>
+            </div>
+            <div class="game-card-info">
+                <p>${window.TRANS.createdText}: <time>${new Date(game.createdAt).toLocaleTimeString()}</time></p>
+            </div>
+            <button class="btn btn--primary" onclick="joinGameHandler('${game.id}')">
+                ${window.TRANS.actionJoin}
+            </button>
+        </div>
+    `}).join('');
+}
+
+function renderActiveGames(games) {
+    const list = document.getElementById('activeGamesList');
+    if (!list) return;
+
+    if (games.length === 0) {
+        const emptyHtml = `<div class="empty-state"><p>${window.TRANS.emptyActive}</p></div>`;
+        if (list.innerHTML !== emptyHtml) {
+            list.innerHTML = emptyHtml;
+            window.lastActiveGamesHtml = emptyHtml;
+        }
+        return;
+    }
+
+    const newHtml = games.map(game => {
+        const opponentName = game.opponent ? game.opponent : window.TRANS.waitingOpponent;
+        
+        let badgeClass = 'badge--active';
+        let statusText = window.TRANS.statusActive;
+        let turnIndicator = '';
+
+        if (game.status === 'finished') {
+            badgeClass = 'badge--finished';
+            statusText = window.TRANS.statusFinished;
+        } else if (game.status === 'waiting') {
+            badgeClass = 'badge--waiting';
+            statusText = window.TRANS.statusWaiting;
+        } else if (game.status === 'active') {
+            if (game.isMyTurn) {
+                turnIndicator = `<span class="turn-badge turn-badge--mine">${window.TRANS.turnMine}</span>`;
+            } else {
+                turnIndicator = `<span class="turn-badge turn-badge--opponent">${window.TRANS.turnOpponent}</span>`;
+            }
+        }
+
+        let buttonText = window.TRANS.actionWatch;
+        if (game.status === 'waiting') {
+            buttonText = window.TRANS.actionEnterLobby;
+        } else if (game.isMyTurn) {
+            buttonText = window.TRANS.actionPlayNow;
+        }
+        
+        return `
+        <div class="game-card ${game.isMyTurn && game.status === 'active' ? 'game-card--my-turn' : ''}">
+            <div class="game-card-header">
+                <h3 class="game-card-title">${escapeHtml(game.creator)} vs ${escapeHtml(opponentName)}</h3>
+                <div class="badges-row">
+                    ${turnIndicator}
+                    <span class="badge ${badgeClass}">${statusText}</span>
+                </div>
+            </div>
+            <div class="game-card-info">
+                <p>${window.TRANS.startedText}: ${game.startedAt ? new Date(game.startedAt).toLocaleTimeString() : window.TRANS.notStarted}</p>
+            </div>
+            <a href="/game/${game.id}" class="btn btn--primary" data-turbo="false">
+                ${buttonText}
+            </a>
+        </div>
+    `}).join('');
+
+    if (window.lastActiveGamesHtml !== newHtml) {
+        list.innerHTML = newHtml;
+        window.lastActiveGamesHtml = newHtml;
+    }
+}
+
+if (window.api.userId) {
+    const storedName = localStorage.getItem('userName');
+    if (storedName) {
+        const el = document.getElementById('currentUserName');
+        if(el) el.textContent = storedName;
+        showScreen('dashboard');
+        loadDashboard();
+    }
+
+    window.api.getCurrentUser()
+        .then(user => {
+            if (user && user.id) {
+                window.api.setUserId(user.id);
+                if (user.name && user.name !== storedName) {
+                    localStorage.setItem('userName', user.name);
+                    const el = document.getElementById('currentUserName');
+                    if(el) el.textContent = user.name;
+                }
+                loadDashboard();
+            }
+        })
+        .catch(() => {});
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+</script>
+{% endblock %}
